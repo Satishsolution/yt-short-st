@@ -1,0 +1,1 @@
+const model = await tf.loadGraphModel('https://tfhub.dev/tensorflow/tfjs-model/yolov5s/quantized/1');

@@ -1,0 +1,1 @@
+await ffmpeg.run('-i', 'input.mp4', '-vf', 'select=gt(scene\,0.1)', '-vsync', 'vfr', 'clip%d.mp4');

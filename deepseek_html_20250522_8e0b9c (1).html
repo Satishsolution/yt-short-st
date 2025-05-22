@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube to Short Converter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <input type="text" id="youtubeUrl" placeholder="YouTube URL डालें">
+    <button onclick="processYouTubeVideo()">कन्वर्ट करें</button>
+    <progress id="progress" value="0" max="100"></progress>
+    <video id="output" controls></video>
+
+    <script>
+        const { createFFmpeg } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+        let model;
+
+        // AI और YouTube API सेटअप
+        async function initialize() {
+            await ffmpeg.load();
+            model = await tf.loadGraphModel('https://tfhub.dev/tensorflow/tfjs-model/yolov5s/1');
+            gapi.load('client', () => {
+                gapi.client.init({ apiKey: 'YOUR_YOUTUBE_API_KEY' });
+            });
+        }
+        initialize();
+
+        async function processYouTubeVideo() {
+            const url = document.getElementById('youtubeUrl').value;
+            const videoId = url.split('v=')[1];
+            
+            // YouTube से वीडियो डेटा फ़ेच करें
+            const response = await gapi.client.youtube.videos.list({
+                part: 'snippet,contentDetails',
+                id: videoId
+            });
+            const duration = response.result.items[0].contentDetails.duration;
+            
+            // FFmpeg के साथ प्रोसेसिंग
+            const videoStream = await fetch(`https://backend.example.com/download?url=${videoId}`);
+            ffmpeg.FS('writeFile', 'input.mp4', await videoStream.arrayBuffer());
+            
+            await ffmpeg.run(
+                '-i', 'input.mp4',
+                '-ss', '0', '-t', '60',  // 1 मिनट का शॉर्ट क्लिप
+                '-vf', 'scale=1080:1920,smartcrop=iw:ih*0.8',  // ऑटो क्रॉप
+                '-c:a', 'copy',
+                'output.mp4'
+            );
+            
+            // AI ऑब्जेक्ट डिटेक्शन
+            const outputData = ffmpeg.FS('readFile', 'output.mp4');
+            const blob = new Blob([outputData.buffer], { type: 'video/mp4' });
+            const videoUrl = URL.createObjectURL(blob);
+            document.getElementById('output').src = videoUrl;
+        }
+
+        // प्रोग्रेस अपडेट
+        ffmpeg.setProgress(({ ratio }) => {
+            document.getElementById('progress').value = ratio * 100;
+        });
+    </script>
+</body>
+</html>
